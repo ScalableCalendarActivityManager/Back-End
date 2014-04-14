@@ -81,8 +81,72 @@ class Test_Suite:
 		assert len(self.calendars.find_one({"name":"test_cal"})["owners"]) == 2
 		self.users.remove({"name":"new_user"})
 		
+	def test_removeUserFromCalendar(self):
+		api.registerUser("new_user","new_pass")
+		api.addUserToCalendar("test_cal","test_user","new_user")
+		result1=api.removeUserFromCalendar("test_cal","test_user","new_user")
+		assert result1
+		new_user = self.users.find_one({"name":"new_user"})
+		assert len(new_user["calendars"]) == 0
+		owners = self.calendars.find_one({"name":"test_cal"})["owners"]
+		assert len(owners) == 1
+		assert owners[0]["user_name"] == "test_user"
+		self.users.remove({"name":"new_user"})
 		
+	def test_getCalendarViewers(self):
+		result1 = api.getCalendarViewers(-1)
+		expected = [{"ID":-1, "user_name":"test_user", "can_write":True}]
+		assert result1 == expected
 		
+	def test_createEvent(self):
+		result1 = api.createEvent(-1,"test_user","test_event","test_start",
+			"test_end","test_loc",["test_user"])
+		expected = {"ID":result1["ID"],
+			"name":"test_event",
+			"start_time":"test_start",
+			"end_time":"test_end",
+			"location":"test_loc",
+			"owner":"test_user",
+			"invitees": [{"ID":-1,"user_name":"test_user"}]}
+		assert result1 == expected
+		user = self.users.find_one({"ID":-1})
+		assert len(user["owned_events"]) ==1
+		assert len(user["invited_events"]) ==1
+		
+	def test_editEvent(self):
+		event = api.createEvent(-1,"test_user","test_event","test_start",
+			"test_end","test_loc",["test_user"])
+		api.editEvent(event["ID"], "start_time", "new_start")
+		assert self.calendars.find({"events.start_time":"new_start"}).count() == 1
+		api.editEvent(event["ID"], "name", "new_event_name")
+		usr = self.users.find_one({"ID":-1})
+		assert usr["owned_events"][0]["name"] == "new_event_name"
+		assert usr["invited_events"][0]["name"] == "new_event_name"
+		assert self.calendars.find({"events.name":"new_event_name"}).count() == 1
+		
+	def test_deleteEvent(self):
+		event = api.createEvent(-1,"test_user","test_event","test_start",
+			"test_end","test_loc",["test_user"])
+		assert api.deleteEvent(event["ID"])
+		assert len(self.calendars.find_one({"ID":-1})["events"])==0
+		usr = self.users.find_one({"ID":-1})
+		assert len(usr["owned_events"]) == 0
+		assert len(usr["invited_events"]) == 0
+		
+	def test_getAllEvents(self):
+		event = api.createEvent(-1,"test_user","test_event","test_start",
+			"test_end","test_loc",["test_user"])
+		events = api.getAllEvents("test_user")
+		assert len(events) == 2
+		assert events[0] == events[1]	
+		expected = {"ID":event["ID"],
+			"name":"test_event",
+			"start_time":"test_start",
+			"end_time":"test_end",
+			"location":"test_loc",
+			"owner":"test_user",
+			"invitees": [{"ID":-1,"user_name":"test_user"}]}
+		assert events[0] == expected
 		
 		
 		
