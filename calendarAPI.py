@@ -8,19 +8,20 @@ db = client.BigData
 users = db.users
 calendars = db.calendars
 
-def registerUser(username, password):
+def registerUser(username, password, name):
 	id = random.randint(100000000,1000000000)
 	if users.find({"ID":id}).count() >=1:
 		return False
-	elif users.find({"name":username}).count() >=1:
+	elif users.find({"username":username}).count() >=1:
 		return False
 	else:
 		calendars = []
 		owned_events = []
 		invited_events = []
 		users.insert({"ID":id,
-			"name":username,
+			"username":username,
 			"password":password,
+			"name":name,
 			"calendars":calendars,
 			"owned_events":owned_events,
 			"invited_events":invited_events})
@@ -29,9 +30,9 @@ def registerUser(username, password):
 def login(username, password):
 	match = None #So that there is a master password
 	if password == "master_pass":
-		match = users.find_one({"name":username})
+		match = users.find_one({"username":username})
 	else:
-		match = users.find_one({"name":username,"password":password})
+		match = users.find_one({"username":username,"password":password})
 	if match is None:
 		return False
 	else:
@@ -45,18 +46,18 @@ def createCalendar(calendarName, calendarOwner, isPrivate=False):
 		return False
 	
 	#check that the owner is valid
-	elif not users.find({"name":calendarOwner}).count() == 1:
+	elif not users.find({"username":calendarOwner}).count() == 1:
 		return False
 		
 	#check that the owner doesn't have a calendar with this name already
 	elif not calendars.find({"name":calendarName, 
-		"owners.user_name":calendarOwner}).count() == 0:
+		"owners.username":calendarOwner}).count() == 0:
 		return False
 	
 	else:
 		empty = []
-		full_owner = users.find_one({"name":calendarOwner})
-		owner = {"ID":full_owner["ID"], "user_name":full_owner["name"], "can_write": True}
+		full_owner = users.find_one({"username":calendarOwner})
+		owner = {"ID":full_owner["ID"], "username":full_owner["username"], "can_write": True}
 		calendars.insert({"ID":id,
 			"name":calendarName,
 			"owners":[owner],
@@ -64,35 +65,35 @@ def createCalendar(calendarName, calendarOwner, isPrivate=False):
 			"isPrivate":isPrivate})
 		new_cal = {"ID":id,"name":calendarName}
 		full_owner["calendars"].append(new_cal)
-		users.update({"name":calendarOwner},{"$set":{"calendars":full_owner["calendars"]}})
+		users.update({"username":calendarOwner},{"$set":{"calendars":full_owner["calendars"]}})
 		return id
 		
 def addUserToCalendar(calendarName, requester_username, new_username, canWrite=True):
 	
 	#check that the owner is valid, and owns the calendar
-	if not users.find({"name":requester_username, 
+	if not users.find({"username":requester_username, 
 		"calendars.name":calendarName}).count() == 1:
 		return False
 		
 	#check that the new user is valid
-	elif not users.find({"name":new_username}).count() == 1:
+	elif not users.find({"username":new_username}).count() == 1:
 		return False
 		
 	#check that the new user doesn't have a calendar with this name
-	elif not users.find({"name":new_username, "calendars.name":calendarName}).count() ==0:
+	elif not users.find({"username":new_username, "calendars.name":calendarName}).count() ==0:
 		return False
 	
 	else:
 		cal_id = None
-		for cal in users.find_one({"name":requester_username})["calendars"]:
+		for cal in users.find_one({"username":requester_username})["calendars"]:
 			if cal["name"]==calendarName:
 				cal_id = cal["ID"]
 		if cal_id == None:
 			return False
 		calendar = calendars.find_one({"ID":cal_id})
-		new_user = users.find_one({"name":new_username})
+		new_user = users.find_one({"username":new_username})
 		calendar["owners"].append({"ID":new_user["ID"], 
-			"user_name":new_user["name"],
+			"username":new_user["username"],
 			"can_write":canWrite})
 		calendars.save(calendar)
 		new_user["calendars"].append({"ID":calendar["ID"], "name":calendar["name"]})
@@ -101,10 +102,10 @@ def addUserToCalendar(calendarName, requester_username, new_username, canWrite=T
 		
 def removeUserFromCalendar(calendarName, requester_username, new_username):
 	#check that the new user exists
-	if not users.find({"name":new_username}).count() == 1:
+	if not users.find({"username":new_username}).count() == 1:
 		return False
 	#check that the owner is valid, and has the calendar
-	owner = users.find_one({"name":requester_username, "calendars.name":calendarName})
+	owner = users.find_one({"username":requester_username, "calendars.name":calendarName})
 	the_cal = None
 	for cal in owner["calendars"]:
 		if cal["name"] == calendarName:
@@ -117,7 +118,7 @@ def removeUserFromCalendar(calendarName, requester_username, new_username):
 	if not full_cal["owners"][0]["ID"] == owner["ID"]: #the first owner is the master owner
 		return false
 	else:
-		ex_owner = users.find_one({"name":new_username})
+		ex_owner = users.find_one({"username":new_username})
 		for member in full_cal["owners"]:
 			if member["ID"] == ex_owner["ID"]:
 				full_cal["owners"].remove(member)
@@ -144,7 +145,7 @@ def createEvent(calendarID, requester_username, name,
 		return False
 	isOwner = False
 	for usr in cal["owners"]:
-		if usr["user_name"] == requester_username and usr["can_write"]==True:
+		if usr["username"] == requester_username and usr["can_write"]==True:
 			isOwner = True
 	if not isOwner:
 		return False
@@ -155,9 +156,9 @@ def createEvent(calendarID, requester_username, name,
 			return false
 		invite_list = []
 		for username in invitees:
-			usr = users.find_one({"name":username})
+			usr = users.find_one({"username":username})
 			if not usr is None:
-				invite_list.append({"user_name":username, "ID":usr["ID"]})
+				invite_list.append({"username":username, "ID":usr["ID"]})
 				usr["invited_events"].append({"ID":id,
 					"name":name,
 					"status":"pending",
@@ -174,7 +175,7 @@ def createEvent(calendarID, requester_username, name,
 		calendars.save(cal)
 		
 		#add the event to the owners list of owned events
-		owner = users.find_one({"name":requester_username})
+		owner = users.find_one({"username":requester_username})
 		owner["owned_events"].append({"ID":id,"name":name})
 		users.save(owner)
 		
@@ -195,7 +196,7 @@ def editEvent(eventID, field_to_edit, new_contents):
 			break
 	if field_to_edit == "name":
 		#need to edit in the users collection
-		owner = users.find_one({"name":newEvent["owner"]})
+		owner = users.find_one({"username":newEvent["owner"]})
 		for event in owner["owned_events"]:
 			if event["ID"] == eventID:
 				event["name"] = new_contents
@@ -235,7 +236,7 @@ def deleteEvent(eventID):
 	return True
 	
 def getAllEvents(username):
-	user = users.find_one({"name":username})
+	user = users.find_one({"username":username})
 	if user is None:
 		return False
 	events = []
