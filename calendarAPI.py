@@ -10,9 +10,9 @@ calendars = db.calendars
 
 def registerUser(username, password, name):
 	id = random.randint(100000000,1000000000)
-	if users.find({"ID":id}).count() >=1:
-		return False
-	elif users.find({"username":username}).count() >=1:
+	while users.find({"ID":id}).count() >=1:
+		id = id+1
+	if users.find({"username":username}).count() >=1:
 		return False
 	else:
 		calendars = []
@@ -42,11 +42,11 @@ def createCalendar(calendarName, calendarOwner, isPrivate=False):
 	id = random.randint(100000000,1000000000)
 	
 	#check that the ID isn't used
-	if calendars.find({"ID":id}).count() >=1:
-		return False
+	while calendars.find({"ID":id}).count() >=1:
+		id=id+1
 	
 	#check that the owner is valid
-	elif not users.find({"username":calendarOwner}).count() == 1:
+	if not users.find({"username":calendarOwner}).count() == 1:
 		return False
 		
 	#check that the owner doesn't have a calendar with this name already
@@ -152,8 +152,8 @@ def createEvent(calendarID, requester_username, name,
 	else:
 		#add the event to the calendar
 		id = random.randint(100000000,1000000000)
-		if calendars.find({"events.ID":id}).count()>=1:
-			return false
+		while calendars.find({"events.ID":id}).count()>=1:
+			id=id+1
 		invite_list = []
 		for username in invitees:
 			usr = users.find_one({"username":username})
